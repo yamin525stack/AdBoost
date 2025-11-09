@@ -1,0 +1,1032 @@
+# Simple workflow for deploying static content to GitHub Pages
+name: Deploy static content to Pages
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+=== AdBoost_Complete.md - Master Project (START) ===
+
+# AdBoost — Full Project (Live M-Pesa, Dark Theme, Local MongoDB)
+
+This master file contains the entire AdBoost project. After pasting into `AdBoost_Complete.md` on your PC, run the extractor script `extract_adboost.ps1` to rebuild the folders and files.
+
+---
+
+=== backend/package.json ===
+{
+  "name": "adboost-backend",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/db/seed-demo.js"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "bcrypt": "^5.1.0",
+    "body-parser": "^1.20.2",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^7.5.0",
+    "multer": "^1.4.5-lts.1",
+    "stripe": "^12.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
+
+=== backend/Dockerfile ===
+FROM node:18-alpine
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm ci --production
+COPY . .
+EXPOSE 8080
+CMD ["node","src/server.js"]
+
+=== backend/src/server.js ===
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
+const path = require('path');
+const mongoose = require('mongoose');
+
+const auth = require('./routes/auth');
+const subscriptions = require('./routes/subscriptions');
+const ads = require('./routes/ads');
+const wallet = require('./routes/wallet');
+const ai = require('./routes/ai');
+const social = require('./routes/social');
+const mpesaPayments = require('./routes/mpesaPayments');
+const webhooks = require('./routes/webhooks');
+
+const app = express();
+app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }));
+app.use(bodyParser.json());
+app.use(cookieParser());
+
+// connect to MongoDB
+const mongoURL = process.env.MONGODB_URI || 'mongodb://mongo:27017/adboost';
+mongoose.connect(mongoURL, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(()=> console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error', err));
+
+app.use('/api/auth', auth);
+app.use('/api/subscriptions', subscriptions);
+app.use('/api/ads', ads);
+app.use('/api/wallet', wallet);
+app.use('/api/ai', ai);
+app.use('/api/social', social);
+app.use('/api/mpesa', mpesaPayments);
+app.use('/api/webhooks', webhooks);
+
+// serve uploaded media (development only)
+app.use('/media', express.static(path.join(__dirname, '../media')));
+
+const port = process.env.PORT || 8080;
+app.listen(port, () => console.log(`Backend listening on port ${port}`));
+
+=== backend/src/models/User.js ===
+const mongoose = require('mongoose');
+const UserSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  role: String,
+  wallet_balance: { type: Number, default: 0 },
+  trial_started_at: { type: Date, default: Date.now },
+  created_at: { type: Date, default: Date.now }
+});
+module.exports = mongoose.model('User', UserSchema);
+
+=== backend/src/models/Subscription.js ===
+const mongoose = require('mongoose');
+const SubscriptionSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  plan: String,
+  price: Number,
+  started_at: Date
+});
+module.exports = mongoose.model('Subscription', SubscriptionSchema);
+
+=== backend/src/models/Ad.js ===
+const mongoose = require('mongoose');
+const AdSchema = new mongoose.Schema({
+  owner_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  title: String,
+  description: String,
+  budget: Number,
+  premium_boost: { type: Boolean, default: false },
+  created_at: { type: Date, default: Date.now }
+});
+module.exports = mongoose.model('Ad', AdSchema);
+
+=== backend/src/models/MpesaTransaction.js ===
+const mongoose = require('mongoose');
+const MpesaSchema = new mongoose.Schema({
+  checkout_request_id: String,
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  amount: Number,
+  type: String,
+  status: String,
+  receipt: String,
+  created_at: { type: Date, default: Date.now },
+  completed_at: Date
+});
+module.exports = mongoose.model('MpesaTransaction', MpesaSchema);
+
+=== backend/src/routes/auth.js ===
+const express = require('express');
+const router = express.Router();
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+router.post('/signup', async (req, res) => {
+  try {
+    const { name, role, email } = req.body;
+    const user = await User.create({ name, role, email });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+    res.json({ success: true, user });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.get('/me', async (req, res) => {
+  try {
+    const token = req.cookies.token;
+    if (!token) return res.json({ user: null });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select('name role email wallet_balance trial_started_at');
+    res.json({ user });
+  } catch (e) { res.json({ user: null }); }
+});
+
+module.exports = router;
+
+=== backend/src/routes/ads.js ===
+const express = require('express');
+const router = express.Router();
+const Ad = require('../models/Ad');
+
+router.post('/create', async (req, res) => {
+  try {
+    const { ownerId, title, description, budget, premiumBoost } = req.body;
+    const ad = await Ad.create({ owner_id: ownerId, title, description, budget, premium_boost: premiumBoost });
+    res.json({ success: true, adId: ad._id });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+router.get('/list', async (req, res) => {
+  try {
+    const ads = await Ad.find().sort({ created_at: -1 }).limit(100);
+    res.json({ success: true, ads });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+module.exports = router;
+
+=== backend/src/routes/wallet.js ===
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+
+router.post('/topup', async (req, res) => {
+  try {
+    const { userId, amount } = req.body;
+    await User.findByIdAndUpdate(userId, { $inc: { wallet_balance: amount } });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+module.exports = router;
+
+=== backend/src/routes/subscriptions.js ===
+const express = require('express');
+const router = express.Router();
+const Subscription = require('../models/Subscription');
+
+// placeholder stripe flow (server should reconcile via webhook)
+router.post('/subscribe', async (req, res) => {
+  try {
+    const { userId, plan, price } = req.body;
+    const sub = await Subscription.create({ user_id: userId, plan, price, started_at: new Date() });
+    res.json({ success: true, subscription: sub });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+module.exports = router;
+
+=== backend/src/services/mpesa.js ===
+const axios = require('axios');
+require('dotenv').config();
+
+// LIVE base URL for Safaricom Daraja (production). For sandbox testing, use sandbox.safaricom.co.ke
+const LIVE_BASE = 'https://api.safaricom.co.ke';
+
+// get OAuth token
+async function getToken() {
+  const key = process.env.MPESA_CONSUMER_KEY;
+  const secret = process.env.MPESA_CONSUMER_SECRET;
+  const auth = Buffer.from(`${key}:${secret}`).toString('base64');
+  const url = `${LIVE_BASE}/oauth/v1/generate?grant_type=client_credentials`;
+  const res = await axios.get(url, { headers: { Authorization: `Basic ${auth}` } });
+  return res.data.access_token;
+}
+
+function getTimestamp() {
+  const d = new Date();
+  const YYYY = d.getFullYear();
+  const MM = String(d.getMonth()+1).padStart(2,'0');
+  const DD = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const ss = String(d.getSeconds()).padStart(2,'0');
+  return `${YYYY}${MM}${DD}${hh}${mm}${ss}`;
+}
+
+// STK Push (Live) — requires correct Passkey and Shortcode from Safaricom when in production
+async function stkPush({ phone, amount, accountReference = 'AdBoost', transactionDesc = 'AdBoost payment', callbackUrl }) {
+  const token = await getToken();
+  const url = `${LIVE_BASE}/mpesa/stkpush/v1/processrequest`;
+  const shortcode = process.env.MPESA_SHORTCODE; // live shortcode or paybill
+  const passkey = process.env.MPESA_PASSKEY;
+  const timestamp = getTimestamp();
+  const password = Buffer.from(shortcode + passkey + timestamp).toString('base64');
+
+  const body = {
+    BusinessShortCode: shortcode,
+    Password: password,
+    Timestamp: timestamp,
+    TransactionType: 'CustomerPayBillOnline',
+    Amount: amount,
+    PartyA: phone,
+    PartyB: shortcode,
+    PhoneNumber: phone,
+    CallBackURL: callbackUrl,
+    AccountReference: accountReference,
+    TransactionDesc: transactionDesc
+  };
+
+  const res = await axios.post(url, body, { headers: { Authorization: `Bearer ${token}` } });
+  return res.data;
+}
+
+module.exports = { getToken, stkPush };
+
+=== backend/src/routes/mpesaPayments.js ===
+const express = require('express');
+const router = express.Router();
+const mpesa = require('../services/mpesa');
+const MpesaTx = require('../models/MpesaTransaction');
+
+router.post('/subscribe', async (req, res) => {
+  try {
+    const { userId, phone, plan, price } = req.body;
+    const callbackUrl = `${process.env.BACKEND_URL}/api/mpesa/callback`;
+    const result = await mpesa.stkPush({ phone, amount: price, accountReference: `sub_${userId}`, transactionDesc: `Subscription ${plan}`, callbackUrl });
+    await MpesaTx.create({ checkout_request_id: result.CheckoutRequestID || null, user_id: userId, amount: price, type: 'subscription', status: 'pending' });
+    res.json({ success: true, mpesa: result });
+  } catch (e) { console.error(e); res.status(500).json({ success: false, error: e.message }); }
+});
+
+router.post('/topup', async (req, res) => {
+  try {
+    const { userId, phone, amount } = req.body;
+    const callbackUrl = `${process.env.BACKEND_URL}/api/mpesa/callback`;
+    const result = await mpesa.stkPush({ phone, amount, accountReference: `topup_${userId}`, transactionDesc: `Topup`, callbackUrl });
+    await MpesaTx.create({ checkout_request_id: result.CheckoutRequestID || null, user_id: userId, amount, type: 'topup', status: 'pending' });
+    res.json({ success: true, mpesa: result });
+  } catch (e) { console.error(e); res.status(500).json({ success: false, error: e.message }); }
+});
+
+router.post('/callback', express.json(), async (req, res) => {
+  try {
+    const body = req.body;
+    const stk = body.Body?.stkCallback;
+    if (!stk) return res.json({ received: true });
+    const checkoutRequestID = stk.CheckoutRequestID;
+    const resultCode = stk.ResultCode;
+    const callbackMetadata = stk.CallbackMetadata;
+
+    const tx = await MpesaTx.findOne({ checkout_request_id: checkoutRequestID });
+
+    if (resultCode === 0) {
+      const items = callbackMetadata?.Item || [];
+      const amountItem = items.find(i => i.Name === 'Amount');
+      const receiptItem = items.find(i => i.Name === 'MpesaReceiptNumber');
+      const phoneItem = items.find(i => i.Name === 'PhoneNumber');
+      const amount = amountItem?.Value || tx?.amount || 0;
+      const receipt = receiptItem?.Value;
+
+      tx.status = 'success';
+      tx.receipt = receipt;
+      tx.completed_at = new Date();
+      await tx.save();
+
+      // credit wallet or create subscription
+      const User = require('../models/User');
+      if (tx.type === 'topup') {
+        await User.findByIdAndUpdate(tx.user_id, { $inc: { wallet_balance: amount } });
+      } else if (tx.type === 'subscription') {
+        const Subscription = require('../models/Subscription');
+        await Subscription.create({ user_id: tx.user_id, plan: 'mpesa', price: amount, started_at: new Date() });
+      }
+
+      console.log('MPESA success', { checkoutRequestID, amount, receipt });
+    } else {
+      tx.status = 'failed';
+      await tx.save();
+      console.log('MPESA failed', { checkoutRequestID, resultCode });
+    }
+
+    res.json({ resultCode: 0, resultDesc: 'Received' });
+  } catch (e) { console.error('Callback error', e); res.status(500).json({ error: 'internal' }); }
+});
+
+module.exports = router;
+
+=== backend/src/routes/webhooks.js ===
+const express = require('express');
+const router = express.Router();
+const Stripe = require('stripe');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+router.post('/stripe', express.raw({type: 'application/json'}), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.log('Webhook signature verification failed.', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    const pi = event.data.object;
+    console.log('PaymentIntent succeeded:', pi.id);
+    // TODO: reconcile payments in DB
+  }
+  res.json({received: true});
+});
+
+module.exports = router;
+
+=== backend/src/db/seed-demo.js ===
+const mongoose = require('mongoose');
+require('dotenv').config();
+const User = require('../models/User');
+const Ad = require('../models/Ad');
+
+async function run() {
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/adboost');
+  try {
+    await User.create({ name: 'Demo Seller', email: 'seller@example.com', role: 'Product Seller', wallet_balance: 100 });
+    await User.create({ name: 'Demo Advertiser', email: 'advertiser@example.com', role: 'Advertiser', wallet_balance: 0 });
+    const seller = await User.findOne({ email: 'seller@example.com' });
+    await Ad.create({ owner_id: seller._id, title: 'Demo Product', description: 'Demo ad', budget: 500 });
+    console.log('Seed complete');
+  } catch (e) { console.error('Seed error', e); }
+  process.exit(0);
+}
+run();
+
+=== backend/.env.example ===
+PORT=8080
+MONGODB_URI=mongodb://mongo:27017/adboost
+JWT_SECRET=change-me
+FRONTEND_URL=http://localhost:5173
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+
+# M-Pesa Live (placeholders - replace with your production credentials from Safaricom)
+MPESA_CONSUMER_KEY=your_live_consumer_key
+MPESA_CONSUMER_SECRET=your_live_consumer_secret
+MPESA_SHORTCODE=your_live_shortcode_or_paybill
+MPESA_PASSKEY=your_live_passkey
+BACKEND_URL=https://your-backend-domain.com
+
+# Google Drive backup
+GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
+GDRIVE_FOLDER_ID=your_google_drive_folder_id_for_AdBoost_Backups
+
+---
+
+=== worker/package.json ===
+{
+  "name": "adboost-worker",
+  "version": "1.0.0",
+  "main": "processVideo.js",
+  "scripts": { "start": "node processVideo.js" },
+  "dependencies": { "bull": "^4.10.0", "ioredis": "^5.3.2", "fluent-ffmpeg": "^2.1.2", "mongoose": "^7.5.0" }
+}
+
+=== worker/processVideo.js ===
+const Queue = require('bull');
+const ffmpeg = require('fluent-ffmpeg');
+const path = require('path');
+
+const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
+const videoQueue = new Queue('video-jobs', redisUrl);
+
+videoQueue.process(async job => {
+  const { inputPath, outputPath } = job.data;
+  console.log('Processing', inputPath);
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions('-movflags frag_keyframe+empty_moov')
+      .size('?x720')
+      .on('end', () => resolve({ outputPath }))
+      .on('error', (err) => reject(err))
+      .save(outputPath);
+  });
+});
+
+console.log('Worker started — waiting for jobs...');
+
+---
+
+=== frontend/package.json ===
+{
+  "name": "adboost-frontend",
+  "version": "1.0.0",
+  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview" },
+  "dependencies": { "axios": "^1.4.0", "react": "^18.2.0", "react-dom": "^18.2.0", "@stripe/stripe-js": "^2.1.0" },
+  "devDependencies": { "vite": "^5.0.0", "tailwindcss": "^4.0.0", "autoprefixer": "^10.0.0", "postcss": "^8.0.0" }
+}
+
+=== frontend/vite.config.js ===
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: { port: 5173 }
+})
+
+=== frontend/tailwind.config.cjs ===
+module.exports = {
+  content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+
+=== frontend/postcss.config.cjs ===
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  }
+}
+
+=== frontend/index.html ===
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AdBoost</title>
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+=== frontend/src/main.jsx ===
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './styles.css';
+
+createRoot(document.getElementById('root')).render(<App />);
+
+=== frontend/src/styles.css ===
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark theme defaults */
+:root { color-scheme: dark; }
+body { background: #0b1220; color: #e6eef8; }
+
+=== frontend/src/App.jsx ===
+import React, { useEffect, useState } from 'react';
+import API from './services/api';
+import Auth from './components/Auth';
+import SubscriptionPanel from './components/SubscriptionPanel';
+import CreateAdForm from './components/CreateAdForm';
+import VideoEditor from './components/VideoEditor';
+import Payments from './pages/Payments';
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  useEffect(() => { (async () => { const r = await API.get('/auth/me'); setUser(r.data.user); })(); }, []);
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold">AdBoost</h1>
+      {!user ? <Auth onSigned={(u) => setUser(u)} /> : (
+        <div>
+          <div className="mt-4">Welcome, <strong>{user.name}</strong> ({user.role})</div>
+          <SubscriptionPanel user={user} />
+          <CreateAdForm user={user} />
+          <VideoEditor user={user} />
+          <Payments user={user} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+=== frontend/src/services/api.js ===
+import axios from 'axios';
+const API = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api', withCredentials: true });
+export default API;
+
+=== frontend/src/components/Auth.jsx ===
+import React, { useState } from 'react';
+import API from '../services/api';
+
+export default function Auth({ onSigned }) {
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('Product Seller');
+  const [email, setEmail] = useState('');
+
+  async function signup() {
+    if (!name) return alert('Enter name');
+    const r = await API.post('/auth/signup', { name, role, email });
+    if (r.data.success) onSigned(r.data.user);
+    else alert('Signup failed');
+  }
+
+  return (
+    <div className="mt-6 p-4 border rounded bg-gray-800">
+      <h3 className="font-semibold text-white">Sign up — 30 day free trial</h3>
+      <input className="w-full p-2 mt-2 border rounded bg-gray-700 text-white" placeholder="Name" value={name} onChange={e=>setName(e.target.value)} />
+      <input className="w-full p-2 mt-2 border rounded bg-gray-700 text-white" placeholder="Email (optional)" value={email} onChange={e=>setEmail(e.target.value)} />
+      <select className="w-full p-2 mt-2 border rounded bg-gray-700 text-white" value={role} onChange={e=>setRole(e.target.value)}>
+        <option>Product Seller</option>
+        <option>Advertiser</option>
+        <option>Video Creator</option>
+        <option>Clipper</option>
+      </select>
+      <button className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded" onClick={signup}>Start free trial</button>
+    </div>
+  )
+}
+
+=== frontend/src/components/SubscriptionPanel.jsx ===
+import React from 'react';
+import API from '../services/api';
+
+const rolePrice = { 'Advertiser':60, 'Product Seller':100, 'Video Creator':100, 'Clipper':60 };
+
+export default function SubscriptionPanel({ user }) {
+  async function subscribe(plan) {
+    const price = rolePrice[user.role] * (plan === 'premium' ? 3 : 1);
+    const res = await API.post('/subscriptions/subscribe', { userId: user._id, plan, price });
+    if (res.data && res.data.success) alert('Subscribed!');
+    else alert('Payment error');
+  }
+
+  return (
+    <div className="mt-4 p-4 border rounded bg-gray-800">
+      <h4 className="font-bold text-white">Subscription ({user.role})</h4>
+      <div className="mt-2 text-gray-300">Monthly: KES {rolePrice[user.role]}</div>
+      <div className="mt-3 flex gap-2">
+        <button className="px-3 py-2 bg-green-600 text-white rounded" onClick={()=>subscribe('standard')}>Subscribe Standard</button>
+        <button className="px-3 py-2 bg-yellow-600 text-white rounded" onClick={()=>subscribe('premium')}>Subscribe Premium</button>
+      </div>
+    </div>
+  )
+}
+
+=== frontend/src/components/CreateAdForm.jsx ===
+import React, { useState } from 'react';
+import API from '../services/api';
+
+export default function CreateAdForm({ user }) {
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [budget, setBudget] = useState(200);
+  const [premium, setPremium] = useState(false);
+
+  async function create() {
+    const r = await API.post('/ads/create', { ownerId: user._id, title, description: desc, budget, premiumBoost: premium });
+    if (r.data.success) alert('Ad created');
+    else alert('Failed');
+  }
+
+  return (
+    <div className="mt-4 p-4 border rounded bg-gray-800">
+      <h4 className="font-bold text-white">Create Ad</h4>
+      <input className="w-full p-2 mt-2 border rounded bg-gray-700 text-white" placeholder="Title" value={title} onChange={e=>setTitle(e.target.value)} />
+      <textarea className="w-full p-2 mt-2 border rounded bg-gray-700 text-white" placeholder="Description" value={desc} onChange={e=>setDesc(e.target.value)} />
+      <div className="mt-2 flex gap-2 items-center">
+        <input type="number" value={budget} onChange={e=>setBudget(Number(e.target.value))} className="p-2 border rounded bg-gray-700 text-white w-32" />
+        <label className="text-gray-300"><input type="checkbox" checked={premium} onChange={e=>setPremium(e.target.checked)} /> Premium Boost</label>
+      </div>
+      <button className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded" onClick={create}>Create Ad</button>
+    </div>
+  )
+}
+
+=== frontend/src/components/VideoEditor.jsx ===
+import React, { useState } from 'react';
+import API from '../services/api';
+
+export default function VideoEditor({ user }) {
+  const [file, setFile] = useState(null);
+  const [instructions, setInstructions] = useState('Trim to 30s, add captions');
+
+  async function submit() {
+    if (!file) return alert('Pick a file');
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('userId', user._id);
+    fd.append('instructions', instructions);
+    const r = await API.post('/ai/submit', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    if (r.data.success) alert('Job queued: ' + r.data.jobId);
+    else alert('Failed');
+  }
+
+  return (
+    <div className="mt-4 p-4 border rounded bg-gray-800">
+      <h4 className="font-bold text-white">AI Video Editor</h4>
+      <input type="file" accept="video/*" onChange={e=>setFile(e.target.files[0])} className="mt-2" />
+      <textarea className="w-full p-2 mt-2 border rounded bg-gray-700 text-white" value={instructions} onChange={e=>setInstructions(e.target.value)} />
+      <button className="mt-3 px-4 py-2 bg-purple-600 text-white rounded" onClick={submit}>Start AI Edit</button>
+    </div>
+  )
+}
+
+=== frontend/src/pages/Payments.jsx ===
+import React, { useState } from 'react';
+import API from '../services/api';
+
+export default function Payments({ user }) {
+  const [phone, setPhone] = useState('2547XXXXXXXX');
+  const [mode, setMode] = useState('subscribe');
+  const [amount, setAmount] = useState(100);
+  const [loading, setLoading] = useState(false);
+
+  async function pay() {
+    setLoading(true);
+    try {
+      if (mode === 'subscribe') {
+        const res = await API.post('/mpesa/subscribe', { userId: user._id, phone, plan: 'standard', price: amount });
+        alert('STK Push initiated. Check phone for prompt.');
+      } else {
+        const res = await API.post('/mpesa/topup', { userId: user._id, phone, amount });
+        alert('STK Push initiated for top-up.');
+      }
+    } catch (e) { alert('Error: ' + (e?.response?.data?.error || e.message)); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="p-4 border rounded max-w-md mx-auto bg-gray-800">
+      <h3 className="font-semibold text-white">Pay via M-Pesa (Live)</h3>
+      <div className="mt-2">
+        <label className="block text-sm text-gray-300">Phone (format 2547...):</label>
+        <input className="p-2 border rounded bg-gray-700 text-white w-full" value={phone} onChange={e=>setPhone(e.target.value)} />
+      </div>
+      <div className="mt-2">
+        <label className="block text-sm text-gray-300">Mode</label>
+        <select className="p-2 border rounded bg-gray-700 text-white w-full" value={mode} onChange={e=>setMode(e.target.value)}>
+          <option value="subscribe">Monthly subscription</option>
+          <option value="topup">Top-up (bonus visibility)</option>
+        </select>
+      </div>
+      <div className="mt-2">
+        <label className="block text-sm text-gray-300">Amount (KES)</label>
+        <input type="number" className="p-2 border rounded bg-gray-700 text-white w-full" value={amount} onChange={e=>setAmount(Number(e.target.value))} />
+      </div>
+      <button className="mt-3 px-4 py-2 bg-green-600 text-white rounded" onClick={pay} disabled={loading}>{loading? 'Sending...' : 'Pay via M-Pesa'}</button>
+    </div>
+  );
+}
+
+=== frontend/.env.example ===
+VITE_API_URL=http://localhost:8080/api
+VITE_STRIPE_PK=pk_live_your_public_key_here
+
+=== docker-compose.yml ===
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    command: node src/server.js
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/adboost
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: 'change-me'
+      FRONTEND_URL: http://localhost:5173
+      STRIPE_SECRET_KEY: 'sk_test_xxx'
+      MPESA_CONSUMER_KEY: 'your_live_consumer_key'
+      MPESA_CONSUMER_SECRET: 'your_live_consumer_secret'
+      MPESA_SHORTCODE: 'your_live_shortcode'
+      MPESA_PASSKEY: 'your_live_passkey'
+      BACKEND_URL: http://localhost:8080
+      GOOGLE_SERVICE_ACCOUNT_FILE: /opt/keys/service-account.json
+      GDRIVE_FOLDER_ID: your_gdrive_folder_id
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/usr/src/app
+
+  worker:
+    build: ./worker
+    command: node processVideo.js
+    depends_on:
+      - redis
+      - backend
+    environment:
+      REDIS_URL: redis://redis:6379
+
+  frontend:
+    build: ./frontend
+    command: npm run dev -- --host
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8080/api
+    volumes:
+      - ./frontend:/usr/src/app
+
+volumes:
+  mongo-data:
+
+=== render.yaml ===
+services:
+  - type: web
+    name: adboost-backend
+    env: node
+    plan: free
+    branch: main
+    buildCommand: npm install --prefix backend
+    startCommand: node backend/src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: MONGODB_URI
+        fromDatabase:
+          name: adboost-db
+          property: connectionString
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+  - type: worker
+    name: adboost-worker
+    env: node
+    plan: free
+    branch: main
+    buildCommand: npm install --prefix worker
+    startCommand: node worker/processVideo.js
+    envVars:
+      - key: MONGODB_URI
+        fromDatabase:
+          name: adboost-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+
+  - type: pserv
+    name: adboost-db
+    plan: free
+    databaseName: adboost
+    user: adboost_admin
+
+cron:
+  - name: adboost-db-backup
+    schedule: '0 2 * * *'
+    command: 'node scripts/backup-db.js'
+    region: oregon
+    envVars:
+      - key: GOOGLE_SERVICE_ACCOUNT_FILE
+        sync: false
+      - key: GDRIVE_FOLDER_ID
+        sync: false
+      - key: MONGODB_URI
+        fromDatabase:
+          name: adboost-db
+          property: connectionString
+
+=== .github/workflows/deploy.yml ===
+name: Deploy AdBoost
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Package project
+        run: |
+          pwsh ./package_adboost.ps1
+
+      - name: Deploy to Render (API)
+        run: |
+          echo "Trigger Render deploy via webhook"
+          curl -X POST -d '{}' ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+      - name: Deploy to Vercel (Frontend)
+        run: |
+          npm install -g vercel
+          vercel --token=${{ secrets.VERCEL_TOKEN }} --prod
+
+=== package_adboost.ps1 ===
+Param([string]$ProjectDir = "$(Resolve-Path .)")
+
+$zipName = "adboost_$(Get-Date -Format yyyyMMdd_HHmm).zip"
+$zipPath = Join-Path $ProjectDir $zipName
+
+Write-Host "📦 Packaging AdBoost project from $ProjectDir to $zipPath"
+
+if (Test-Path $zipPath) { Remove-Item $zipPath }
+Compress-Archive -Path (Join-Path $ProjectDir '*') -DestinationPath $zipPath -Force
+
+if (Test-Path $zipPath) {
+  Write-Host "✅ Package created: $zipPath"
+} else {
+  Write-Error "❌ Package creation failed"
+}
+
+=== scripts/backup-db.js ===
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const { google } = require('googleapis');
+require('dotenv').config();
+
+const SERVICE_ACCOUNT_FILE = process.env.GOOGLE_SERVICE_ACCOUNT_FILE;
+const DRIVE_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!SERVICE_ACCOUNT_FILE || !DRIVE_FOLDER_ID || !MONGODB_URI) {
+  console.error('Set GOOGLE_SERVICE_ACCOUNT_FILE, GDRIVE_FOLDER_ID, and MONGODB_URI in env');
+  process.exit(1);
+}
+
+async function authDrive() {
+  const auth = new google.auth.GoogleAuth({ keyFile: SERVICE_ACCOUNT_FILE, scopes: ['https://www.googleapis.com/auth/drive'] });
+  const client = await auth.getClient();
+  const drive = google.drive({ version: 'v3', auth: client });
+  return drive;
+}
+
+async function dumpMongo(outPath) {
+  return new Promise((resolve, reject) => {
+    // Use mongodump; ensure it's installed in host image
+    const args = ['--archive=' + outPath, '--gzip', '--uri=' + MONGODB_URI];
+    const child = spawn('mongodump', args, { stdio: 'inherit' });
+    child.on('close', code => code === 0 ? resolve() : reject(new Error('mongodump failed ' + code)));
+  });
+}
+
+async function uploadFile(drive, filePath, destName) {
+  const res = await drive.files.create({
+    requestBody: { name: destName, parents: [DRIVE_FOLDER_ID] },
+    media: { mimeType: 'application/octet-stream', body: fs.createReadStream(filePath) }
+  });
+  return res.data;
+}
+
+(async () => {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `adboost-mongo-backup-${timestamp}.archive.gz`;
+    const outPath = path.join('/tmp', filename);
+
+    console.log('Starting mongodump to', outPath);
+    await dumpMongo(outPath);
+
+    const drive = await authDrive();
+    console.log('Uploading to Google Drive folder id', DRIVE_FOLDER_ID);
+    const uploaded = await uploadFile(drive, outPath, filename);
+    console.log('Uploaded:', uploaded.id);
+
+    fs.unlinkSync(outPath);
+    console.log('Backup complete');
+  } catch (e) {
+    console.error('Backup error', e);
+    process.exit(1);
+  }
+})();
+
+=== README.md ===
+# AdBoost
+
+AdBoost — multi-role advertising and video promotion platform.
+
+## Quick start (local Docker)
+1. Copy files into project directory (use extractor script to rebuild from the master .md).
+2. Create `.env` in backend from `.env.example`.
+3. Place Google service account key at location referenced by `GOOGLE_SERVICE_ACCOUNT_FILE` OR set the path in `docker-compose`.
+4. Run:
+
+jobs:
+  # Single deploy job since we're just deploying
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload entire repository
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
