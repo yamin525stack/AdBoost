@@ -1,0 +1,984 @@
+# Simple workflow for deploying static content to GitHub Pages
+name: Deploy static content to Pages
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:adboost/                          # repo root
+├─ package.json
+├─ vite.config.js
+├─ index.html
+├─ tailwind.config.cjs
+├─ postcss.config.cjs
+├─ .gitignore
+├─ README.md
+└─ src/
+   ├─ main.jsx{
+  "name": "adboost-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "homepage": "https://yamin525stacks.github.io/adboost/",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {module.exports = {
+  content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',node_modules
+dist
+.env
+.DS_Store# AdBoost — Frontend (GitHub Pages)
+
+This repo builds AdBoost frontend (React + Vite + Tailwind). It is configured to publish to:
+https://yamin525stacks.github.io/adboost/
+
+## Quick start (Windows)
+1. Install Node.js (18+), npm.
+2. Install dependencies:
+
+
+  theme: { extend: {} },
+  plugins: []module.exports = {
+  plugins: { tailwindcss: {}, autoprefixer: {} }
+}
+
+}
+
+    "@heroicons/react": "^2.0.18",<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AdBoost — Promote & Monetize</title>
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+    "axios": "^1.4.0",
+    "react": "^18.2.0",import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  base: '/adboost/',
+  plugins: [react()],
+  server: { port: 5173 }
+});
+
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.14.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.14",
+    "gh-pages": "^5.0.0",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^4.0.0",
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.0.0"
+  }
+}
+
+   ├─ styles.css
+   ├─ services/
+   │  └─ api.js
+   ├─ App.jsx3. Run dev server:import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';// Simple client-side auth helpers (mock). Replace with real backend auth later.
+const TOKEN_KEY = 'adboost_token';
+const USER_KEY = 'adboost_user';
+
+export function saveAuth(user) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(TOKEN_KEY, 'local-mock-token');
+}
+
+export function clearAuth() {
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(TOKEN_KEY);import React from 'react';
+import { Routes, Route, Link, Navigate } from 'react-router-dom';
+import Landing from './pages/Landing';
+import AuthPage from './pages/Auth';
+import Dashboard from './pages/Dashboard';
+import Payments from './pages/Payments';
+import { isAuthenticated } from './auth/auth';
+
+function PrivateRoute({ children }) {
+  if (!isAuthenticated()) return <Navigate to="/auth" replace />;
+  return children;
+}
+
+export default function App(){
+  return (
+    <div className="min-h-screen bg-gray-900 text-gray-100">
+      <header className="border-b border-gray-800">
+        <div className="container flex items-center justify-between py-4">
+          <Link to="/" className="text-xl font-bold">AdBoost</Link>
+          <nav className="flex gap-3">
+            <Link to="/" className="text-gray-300 hover:text-white">Home</Link>
+            <Link to="/auth" className="text-gray-300 hover:text-white">Sign up / Login</Link>
+            <Link to="/dashboard" className="text-gray-300 hover:text-white">Dashboard</Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="container py-8">
+        <Routes>
+          <Route path="/" element={<Landing/>} />
+          <Route path="/auth" element={<AuthPage/>} />
+          <Route path="/dashboard" element={<PrivateRoute><Dashboard/></PrivateRoute>} />
+          <Route path="/payments" element={<PrivateRoute><Payments/></PrivateRoute>} />
+        </Routes>import React from 'react';
+import { Link } from 'react-router-dom';
+
+export default function Landing(){
+  return (
+    <div className="grid gap-8 md:grid-cols-2 items-center">
+      <div>
+        <h1 className="text-4xl font-extrabold mb-4">Promote your product. Pay advertisers. Grow sales.</h1>
+        <p className="text-gray-300 mb-6">AdBoost connects product sellers with advertisers and video creators. Sign up and start a free trial.</p>
+        <div className="flex gap-3">
+          <Link to="/auth" className="px-4 py-2 bg-indigo-600 text-white rounded">Get started — free trial</Link>
+          <a href="#how" className="px-4 py-2 border border-gray-700 rounded text-gray-300">How it works</a>
+        </div>
+      </div>
+
+      <div className="bg-card p-6 rounded">
+        <h3 className="font-semibold mb-2">Roles & Pricing</h3>
+        <ul className="text-gray-300 space-y-2">import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { saveAuth } from '../auth/auth';
+
+export default function AuthPage(){
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('Product Seller');
+  const [email, setEmail] = useState('');
+  const nav = useNavigate();
+
+  function signupLocal() {
+    if (!name) return alert('Enter name');
+    const user = { name, role, email, id: 'local-' + Date.now() };
+    saveAuth(user);
+    alert('Signed up (local demo). Free trial started.');
+    nav('/dashboard');
+  }
+
+  function loginLocal() {
+    if (!name) return alert('Enter name to login (demo)');
+    const user = { name, role, email, id: 'local-' + Date.now() };
+    saveAuth(user);
+    nav('/dashboard');
+  }
+
+  return (
+    <div className="max-w-md mx-auto bg-gray-800 p-6 rounded">
+      <h2 className="text-xl font-semibold mb-4">Sign up — 30 day free trial</h2>
+      <input className="w-full p-2 mb-3 bg-gray-700 rounded text-white" placeholder="Name" value={name} onChange={e=>setName(e.target.value)} />
+      <input className="w-full p-2 mb-3 bg-gray-700 rounded text-white" placeholder="Email (optional)" value={email} onChange={e=>setEmail(e.target.value)} />
+      <select className="w-full p-2 mb-3 bg-gray-700 rounded text-white" value={role} onChange={e=>setRole(e.target.value)}>
+        <option>Product Seller</option>
+        <option>Advertiser</option>
+        <option>Video Creator</option>
+        <option>Clipper</option>import React from 'react';
+import { currentUser, clearAuth } from '../auth/auth';
+import { Link, useNavigate } from 'react-router-dom';
+
+export default function Dashboard(){
+  const user = currentUser();
+  const nav = useNavigate();
+
+  function logout() {
+    clearAuth();
+    nav('/');
+  }
+
+  return (
+    <div>
+      <div className="bg-card p-4 rounded mb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold">Dashboard</h3>
+            <div className="text-sm text-gray-300 mt-2">Welcome {user?.name || 'user'}. Role: {user?.role}</div>
+          </div>
+          <button className="px-3 py-2 border rounded text-gray-300" onClick={logout}>Logout</button>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="bg-card p-4 rounded">
+          <h4 className="font-semibold">My Ads</h4>
+          <div className="text-gray-400 mt-3">No ads yet — create one when backend is connected.</div>
+        </div>
+import React, { useState } from 'react';
+import API from '../services/api';
+
+export default function Payments(){
+  const [phone, setPhone] = useState('2547XXXXXXXX');
+  const [mode, setMode] = useState('subscribe');
+  const [amount, setAmount] = useState(100);
+  const [loading, setLoading] = useState(false);
+
+  async function pay(){
+    setLoading(true);
+    try {
+      if(mode === 'subscribe'){
+        await API.post('/mpesa/subscribe', { userId: null, phone, plan: 'standard', price: amount });
+        alert('STK Push initiated. Check phone for prompt.');
+      } else {
+        await API.post('/mpesa/topup', { userId: null, phone, amount });
+        alert('STK Push initiated for top-up.');
+      }
+    } catch(e){
+      alert('Payment error: ' + (e?.response?.data?.error || e.message));
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="max-w-md mx-auto bg-card p-6 rounded"># create folder
+mkdir C:\Projects\adboost
+cd C:\Projects\adboost
+
+# copy the files above into the paths (use VS Code or Notepad to save each file)
+# Once files are saved:
+
+# initialize git
+git init
+git checkout -b main
+
+# create .gitignore quickly
+@"
+node_modules
+dist
+.env
+.DS_Store
+"@ | Out-File .gitignore -Encoding utf8
+
+git add .
+git commit -m "Initial AdBoost frontend commit"
+
+# create remote repo on GitHub (option A: using gh CLI)
+# If you have GitHub CLI installed:
+# gh repo create yamin525stacks/adboost --public --source=. --remote=origin --push
+
+# Option B: create repo on github.com manually, then add remote:
+git remote add origin https://github.com/yamin525stacks/adboost.git
+git branch -M main
+git push -u origin mainVITE_API_URL=https://your-backend-url/api
+adboost/
+├── frontend/
+│   ├── public/
+│   │   ├── favicon.ico
+│   │   ├── index.html
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── Footer.jsx
+│   │   │   ├── ProtectedRoute.jsx
+│   │   ├── pages/
+│   │   │   ├── Home.jsx
+│   │   │   ├── Login.jsx
+│   │   │   ├── Register.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── Pricing.jsx=== package.json ===
+{
+  "name": "adboost-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "homepage": "https://yamin525stacks.github.io/adboost/",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.0.18",
+    "axios": "^1.4.0",=== vite.config.js ====== tailwind.config.cjs ===
+module.exports = {
+  content: ['./index.html', './src/**/*.{js,jsx}'],=== postcss.config.cjs ===
+module.exports = {3. Run dev server:=== .github/workflows/gh-pages.yml ===
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4=== src/main.jsx ===
+import React from 'react';=== src/styles.css ===
+@tailwind base;=== src/auth/auth.js ===
+/*
+ Simple client-side auth helpers (mock).
+ Replace with real backend auth later.
+*/
+const TOKEN_KEY = 'adboost_token';
+const USER_KEY = 'adboost_user';
+
+export function saveAuth(user) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(TOKEN_KEY, 'local-mock-token');
+}
+
+export function clearAuth() {=== src/components/Navbar.jsx ===
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { currentUser, clearAuth } from '../auth/auth';
+import { useNavigate } from 'react-router-dom';
+
+export default function Navbar(){
+  const user = currentUser();
+  const nav = useNavigate();
+
+  function logout() {
+    clearAuth();
+    nav('/');
+  }
+
+  return (
+    <header className="border-b border-gray-800">
+      <div className="container flex items-center justify-between py-4">
+        <Link to="/" className="text-xl font-bold">AdBoost</Link>
+        <nav className="flex gap-3 items-center">
+          <Link to="/" className="text-gray-300 hover:text-white">Home</Link>
+          <Link to="/pricing" className="text-gray-300 hover:text-white">Pricing</Link>
+          <Link to="/dashboard" className="text-gray-300 hover:text-white">Dashboard</Link>
+          {user ? (
+            <>=== src/components/Footer.jsx ===
+import React from 'react';=== src/components/ProtectedRoute.jsx ====== src/App.jsx ===
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import ProtectedRoute from './components/ProtectedRoute';
+import Home from './pages/Home';
+import Auth from './pages/Auth';
+import Dashboard from './pages/Dashboard';
+import Pricing from './pages/Pricing';
+import Payments from './pages/Payments';
+import NotFound from './pages/NotFound';
+
+export default function App(){
+  return (
+    <div className="min-h-screen bg-gray-900 text-gray-100">
+      <Navbar />
+      <main className="container py-8">
+        <Routes>
+          <Route path="/" element={<Home/>} />=== src/pages/Home.jsx ===
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+export default function Home(){
+  return (
+    <div className="grid gap-8 md:grid-cols-2 items-center">
+      <div>
+        <h1 className="text-4xl font-extrabold mb-4">Promote your product. Pay advertisers. Grow sales.</h1>
+        <p className="text-gray-300 mb-6">AdBoost connects product sellers with advertisers and video creators. Sign up and start a free trial.</p>
+        <div className="flex gap-3">
+          <Link to="/auth" className="px-4 py-2 bg-indigo-600 text-white rounded">Get started — free trial</Link>
+          <a href="#how" className="px-4 py-2 border border-gray-700 rounded text-gray-300">How it works</a>
+        </div>
+      </div>
+
+      <div className="bg-card p-6 rounded">
+        <h3 className="font-semibold mb-2">Roles & Pricing</h3>=== src/pages/Auth.jsx ===
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { saveAuth } from '../auth/auth';
+
+export default function Auth(){
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('Product Seller');
+  const [email, setEmail] = useState('');
+  const nav = useNavigate();
+
+  function signupLocal() {
+    if (!name) return alert('Enter name');
+    const user = { name, role, email, id: 'local-' + Date.now() };
+    saveAuth(user);
+    alert('Signed up (local demo). Free trial started.');
+    nav('/dashboard');
+  }
+
+  function loginLocal() {
+    if (!name) return alert('Enter name to login (demo)');
+    const user = { name, role, email, id: 'local-' + Date.now() };
+    saveAuth(user);
+    nav('/dashboard');
+  }
+
+  return (
+    <div className="max-w-md mx-auto bg-card p-6 rounded">
+      <h2 className="text-xl font-semibold mb-4">Sign up / Login — 30 day free trial</h2>
+      <input className="w-full p-2 mb-3 bg-gray-700 rounded text-white" placeholder="Name" value={name} onChange={e=>setName(e.target.value)} />
+      <input className="w-full p-2 mb-3 bg-gray-700 rounded text-white" placeholder="Email (optional)" value={email} onChange={e=>setEmail(e.target.value)} />
+      <select className="w-full p-2 mb-3 bg-gray-700 rounded text-white" value={role} onChange={e=>setRole(e.target.value)}>
+        <option>Product Seller</option>
+        <option>Advertiser</option>
+        <option>Video Creator</option>
+        <option>Clipper</option>=== src/pages/Pricing.jsx ===
+import React from 'react';
+
+export default function Pricing(){
+  return (
+    <div className="grid gap-6 md:grid-cols-3">
+      <div className="bg-card p-6 rounded">
+        <h3 className="font-semibold">Advertiser</h3>
+        <div className="text-2xl font-bold my-2">KES 60</div>
+        <div className="text-sm text-gray-300">Monthly subscription</div>
+      </div>
+      <div className="bg-card p-6 rounded">
+        <h3 className="font-semibold">Product Seller</h3>
+        <div className="text-2xl font-bold my-2">KES 100</div>
+        <div className="text-sm text-gray-300">Monthly subscription</div>
+      </div>=== src/pages/Dashboard.jsx ===
+import React from 'react';
+import { currentUser, clearAuth } from '../auth/auth';
+import { Link, useNavigate } from 'react-router-dom';
+
+export default function Dashboard(){
+  const user = currentUser();
+  const nav = useNavigate();
+
+  function logout() {
+    clearAuth();
+    nav('/');
+  }
+
+  return (
+    <div>
+      <div className="bg-card p-4 rounded mb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold">Dashboard</h3>
+            <div className="text-sm text-gray-300 mt-2">Welcome {user?.name || 'user'}. Role: {user?.role}</div>
+          </div>
+          <button className="px-3 py-2 border rounded text-gray-300" onClick={logout}>Logout</button>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="bg-card p-4 rounded">
+          <h4 className="font-semibold">My Ads</h4>
+          <div className="text-gray-400 mt-3">No ads yet — create one when backend is connected.</div>
+        </div>
+=== src/pages/Payments.jsx ===
+import React, { useState } from 'react';
+import API from '../services/api';
+
+export default function Payments(){
+  const [phone, setPhone] = useState('2547XXXXXXXX');
+  const [mode, setMode] = useState('subscribe');
+  const [amount, setAmount] = useState(100);
+  const [loading, setLoading] = useState(false);
+
+  async function pay(){
+    setLoading(true);
+    try {
+      if(mode === 'subscribe'){
+        await API.post('/mpesa/subscribe', { userId: null, phone, plan: 'standard', price: amount });
+        alert('STK Push initiated. Check phone for prompt.');
+      } else {
+        await API.post('/mpesa/topup', { userId: null, phone, amount });
+        alert('STK Push initiated for top-up.');
+      }
+    } catch(e){
+      alert('Payment error: ' + (e?.response?.data?.error || e.message));
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="max-w-md mx-auto bg-card p-6 rounded">
+      <h3 className="text-lg font-semibold mb-3">Payments (M-Pesa)</h3>=== src/pages/NotFound.jsx ===
+import React from 'react';
+import { Link } from 'react-router-dom';
+# initialize git
+git init
+git checkout -b main
+
+# create .gitignore quickly
+@"
+node_modules
+dist
+.env
+.DS_Store
+"@ | Out-File .gitignore -Encoding utf8
+
+git add .
+git commit -m "Initial AdBoost frontend commit"
+
+# create empty repo on GitHub named 'adboost' manually OR use gh CLI:
+# If gh CLI is installed:
+# gh repo create yamin525stacks/adboost --public --source=. --remote=origin --push
+
+# If not using gh CLI, create repo manually on github.com then:
+git remote add origin https://github.com/yamin525stacks/adboost.git
+git branch -M main
+git push -u origin main
+# Create AdBoost project folder
+cd C:\Projects
+mkdir adboost
+cd adboost
+
+# Initialize git
+git init
+git checkout -b main
+
+# Create the GitHub repo directly from your account
+gh repo create yamin525stacks/adboost --public --source=. --remote=origin --push
+
+# Add project files from ChatGPT (paste each file or download script later)
+# If you saved all files already, skip ahead to:
+git add .
+git commit -m "Initial AdBoost frontend (React + Vite + Tailwind)"
+git push -u origin main
+git add .
+git commit -m "update"
+git push
+npm run deploy
+
+# Install dependencies
+npm ci
+
+# Test locally
+npm run dev
+# Visit http://localhost:5173
+
+# Deploy to GitHub Pages (your live site)
+npm run deploy
+
+# install dependencies
+npm ci
+
+# test locally
+npm run dev
+# visit http://localhost:5173
+
+# deploy locally using gh-pages (optional)
+npm install -g gh-pages
+npm run deploy
+# published to: https://yamin525stacks.github.io/adboost/
+
+export default function NotFound(){
+  return (
+    <div className="text-center py-20">
+      <h2 className="text-2xl font-bold mb-4">Page not found</h2>
+      <Link to="/" className="text-indigo-400">Go home</Link>
+    </div>
+  );
+}
+
+      <label className="text-sm text-gray-300">Phone (2547...)</label>
+      <input className="w-full p-2 mb-3 bg-gray-700 rounded text-white" value={phone} onChange={e=>setPhone(e.target.value)} />
+      <label className="text-sm text-gray-300">Mode</label>
+      <select className="w-full p-2 mb-3 bg-gray-700 rounded text-white" value={mode} onChange={e=>setMode(e.target.value)}>
+        <option value="subscribe">Monthly subscription</option>
+        <option value="topup">Top-up (bonus visibility)</option>
+      </select>
+      <label className="text-sm text-gray-300">Amount (KES)</label>
+      <input type="number" className="w-full p-2 mb-4 bg-gray-700 rounded text-white" value={amount} onChange={e=>setAmount(Number(e.target.value))} />
+      <button className="w-full py-2 bg-green-600 rounded" onClick={pay} disabled={loading}>{loading? 'Sending...' : 'Pay via M-Pesa'}</button>
+    </div>
+  );
+}
+
+        <div className="bg-card p-4 rounded">
+          <h4 className="font-semibold">Quick Actions</h4>
+          <div className="mt-3 flex flex-col gap-2">
+            <Link to="/payments" className="px-3 py-2 bg-green-600 rounded text-white text-center">Pay / Top-up</Link>
+            <button className="px-3 py-2 border rounded text-gray-300" onClick={()=>alert('AI editor placeholder')}>Start AI Edit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+      <div className="bg-card p-6 rounded">
+        <h3 className="font-semibold">Creators / Clipper</h3>
+        <div className="text-2xl font-bold my-2">KES 60 - 100</div>
+        <div className="text-sm text-gray-300">Monthly subscription</div>
+      </div>
+      <div className="md:col-span-3 bg-gray-800 p-6 rounded mt-6">
+        <h4 className="font-semibold mb-2">Top-ups</h4>
+        <p className="text-gray-300">Add wallet credits via M-Pesa for premium visibility boosts.</p>
+      </div>
+    </div>
+  );
+}
+
+      </select>
+
+      <div className="flex gap-2">
+        <button className="flex-1 py-2 bg-indigo-600 rounded" onClick={signupLocal}>Start free trial</button>
+        <button className="flex-1 py-2 border border-gray-700 rounded" onClick={loginLocal}>Login (demo)</button>
+      </div>
+
+      <div className="text-sm text-gray-400 mt-3">This uses a local demo auth. Replace with real API calls when backend is ready.</div>
+    </div>
+  );
+}
+
+        <ul className="text-gray-300 space-y-2">
+          <li>Advertiser — KES 60 / month</li>
+          <li>Product Seller — KES 100 / month</li>
+          <li>Video Creator — KES 100 / month</li>
+          <li>Clipper — KES 60 / month</li>
+        </ul>
+        <p className="text-sm text-gray-500 mt-4">Premium boosts increase visibility — paid with top-ups (wallet or M-Pesa).</p>
+      </div>
+    </div>
+  );
+}
+
+          <Route path="/auth" element={<Auth/>} />
+          <Route path="/pricing" element={<Pricing/>} />
+          <Route path="/payments" element={<Payments/>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>} />
+          <Route path="*" element={<NotFound/>} />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { isAuthenticated } from '../auth/auth';
+
+export default function ProtectedRoute({ children }) {
+  if (!isAuthenticated()) return <Navigate to="/auth" replace />;
+  return children;
+}
+
+
+export default function Footer(){
+  return (
+    <footer className="border-t border-gray-800 mt-8">
+      <div className="container py-4 text-sm text-gray-500">
+        © {new Date().getFullYear()} AdBoost — connect sellers with advertisers.
+      </div>
+    </footer>
+  );
+}
+
+              <span className="text-sm text-gray-400 px-2">Hi, {user.name}</span>
+              <button onClick={logout} className="px-3 py-1 border rounded text-gray-300">Logout</button>
+            </>
+          ) : (
+            <Link to="/auth" className="px-3 py-1 bg-indigo-600 rounded text-white">Sign up / Login</Link>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export function currentUser() {
+  const s = localStorage.getItem(USER_KEY);
+  return s ? JSON.parse(s) : null;
+}
+
+export function isAuthenticated() {
+  return !!localStorage.getItem(TOKEN_KEY);
+}
+
+@tailwind components;=== src/services/api.js ===
+import axios from 'axios';
+const API = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  withCredentials: true
+});
+export default API;
+
+@tailwind utilities;
+
+/* dark theme defaults */
+:root { color-scheme: dark; }
+body { background: #0b1220; color: #e6eef8; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+.container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+.bg-card { background: #0f1724; }
+
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './styles.css';
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter basename="/adboost">
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+        with:
+          node-version: 18
+      - name: Install deps
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+
+4. Build:5. Deploy to GitHub Pages:
+Set `VITE_API_URL` in `.env` for the backend when ready.
+
+
+
+  plugins: { tailwindcss: {}, autoprefixer: {} }=== .gitignore ===
+node_modules=== README.md ===
+# AdBoost — Frontend (GitHub Pages)
+
+This repo builds AdBoost frontend (React + Vite + Tailwind). It is configured to publish to:
+https://yamin525stacks.github.io/adboost/
+
+## Quick start (Windows)
+1. Install Node.js (18+), npm.
+2. Install dependencies:
+
+dist
+.env
+.DS_Store
+
+}
+
+  darkMode: 'class',
+  theme: { extend: {} },
+  plugins: []
+}
+
+import { defineConfig } from 'vite';=== index.html ===
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AdBoost — Promote & Monetize</title>
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  base: '/adboost/',
+  plugins: [react()],
+  server: { port: 5173 }
+});
+
+    "react": "^18.2.0",=== vite.config.js ===
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  base: '/adboost/',
+  plugins: [react()],
+  server: { port: 5173 }
+});
+
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.14.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.14",
+    "gh-pages": "^5.0.0",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^4.0.0",
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.0.0"
+  }
+}
+
+│   │   │   ├── NotFound.jsx
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── .gitignore
+│   ├── README.md
+├── package_adboost.ps1
+└── .github/workflows/deploy.yml
+
+
+# install dependencies and test locally
+npm ci
+npm run dev
+# visit http://localhost:5173
+
+# deploy to GitHub Pages locally (you can also rely on Actions)
+npm install -g gh-pages
+npm run deploy
+# published to: https://yamin525stacks.github.io/adboost/
+
+      <h3 className="text-lg font-semibold mb-3">Payments (M-Pesa)</h3>
+      <label className="text-sm text-gray-300">Phone (2547...)</label>
+      <input className="w-full p-2 mb-3 bg-gray-700 rounded text-white" value={phone} onChange={e=>setPhone(e.target.value)} />
+      <label className="text-sm text-gray-300">Mode</label>
+      <select className="w-full p-2 mb-3 bg-gray-700 rounded text-white" value={mode} onChange={e=>setMode(e.target.value)}>
+        <option value="subscribe">Monthly subscription</option>
+        <option value="topup">Top-up (bonus visibility)</option>
+      </select>
+      <label className="text-sm text-gray-300">Amount (KES)</label>
+      <input type="number" className="w-full p-2 mb-4 bg-gray-700 rounded text-white" value={amount} onChange={e=>setAmount(Number(e.target.value))} />
+      <button className="w-full py-2 bg-green-600 rounded" onClick={pay} disabled={loading}>{loading? 'Sending...' : 'Pay via M-Pesa'}</button>
+    </div>
+  );
+}
+
+        <div className="bg-card p-4 rounded">
+          <h4 className="font-semibold">Quick Actions</h4>
+          <div className="mt-3 flex flex-col gap-2">
+            <Link to="/payments" className="px-3 py-2 bg-green-600 rounded text-white text-center">Pay / Top-up</Link>
+            <button className="px-3 py-2 border rounded text-gray-300" onClick={()=>alert('AI editor placeholder')}>Start AI Edit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+      </select>
+
+      <div className="flex gap-2">
+        <button className="flex-1 py-2 bg-indigo-600 rounded" onClick={signupLocal}>Start free trial</button>
+        <button className="flex-1 py-2 border border-gray-700 rounded" onClick={loginLocal}>Login (demo)</button>
+      </div>
+      <div className="text-sm text-gray-400 mt-3">This uses a local demo auth. When your backend is live, replace these functions with real API calls.</div>
+    </div>
+  );
+}
+
+          <li>Advertiser — KES 60 / month</li>
+          <li>Product Seller — KES 100 / month</li>
+          <li>Video Creator — KES 100 / month</li>
+          <li>Clipper — KES 60 / month</li>
+        </ul>
+        <p className="text-sm text-gray-500 mt-4">Premium boosts increase visibility — paid with top-ups (wallet or M-Pesa).</p>
+      </div>
+    </div>
+  );
+}
+
+      </main>
+
+      <footer className="border-t border-gray-800">
+        <div className="container py-4 text-sm text-gray-500">
+          © {new Date().getFullYear()} AdBoost
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+}
+
+export function currentUser() {
+  const s = localStorage.getItem(USER_KEY);
+  return s ? JSON.parse(s) : null;
+}
+
+export function isAuthenticated() {
+  return !!localStorage.getItem(TOKEN_KEY);
+}
+
+import App from './App';import axios from 'axios';
+const API = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  withCredentials: true
+});
+export default API;
+
+import './styles.css';
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter basename="/adboost">
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+body { background: #0b1220; color: #e6eef8; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+.container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+.bg-card { background: #0f1724; } /* small helper */
+
+);
+
+
+   ├─ auth/
+   │  └─ auth.js                 # local auth helpers
+Set `VITE_API_URL` in `.env` for the backend when ready.
+
+   └─ pages/
+      ├─ Landing.jsx
+      ├─ Auth.jsx                # login/signup UI (uses localStorage)4. Build:
+
+      ├─ Dashboard.jsx
+      └─ Payments.jsx
+5. Deploy to GitHub Pages:
+
+  # Single deploy job since we're just deploying
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload entire repository
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
